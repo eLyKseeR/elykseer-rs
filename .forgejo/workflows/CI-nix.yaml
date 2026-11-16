@@ -1,0 +1,79 @@
+# Format check, clippy, build, tests with coverage (cargo llvm-cov), and the
+# command line and round-trip tests.
+# Runs in the shared image from the CI_IMAGE repository variable (see image.yaml).
+name: Forgejo CI Testing
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test
+    runs-on: nixos-amd64
+    container:
+      image: ${{ vars.CI_IMAGE }}
+      credentials:
+        username: ${{ secrets.REGISTRY_USER }}
+        password: ${{ secrets.REGISTRY_TOKEN }}
+
+    steps:
+      - name: intro
+        run: |
+          echo "🎉 The job was automatically triggered by a ${{ forgejo.event_name }} event.";
+          echo "🐧 This job is now running on a ${{ runner.os }} server hosted by Forgejo!";
+          echo "🔎 The name of your branch is ${{ forgejo.ref }} and your repository is ${{ forgejo.repository }}.";
+
+      - name: Check out repository code
+        uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: cache dependencies
+        uses: actions/cache@v4
+        with:
+          key: cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+
+      - name: check format code
+        run: cargo fmt --all -- --check 2>&1
+
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings 2>&1
+
+      - name: build project - crate
+        run: cargo build --lib 2>&1
+
+      - name: build project - lxr_backup
+        run: cargo build --bin lxr_backup 2>&1
+
+      - name: build project - lxr_restore
+        run: cargo build --bin lxr_restore 2>&1
+
+      - name: test project with coverage
+        run: cargo llvm-cov --no-report 2>&1
+
+      - name: coverage summary
+        run: cargo llvm-cov report --summary-only 2>&1
+
+      - name: coverage report (html)
+        run: cargo llvm-cov report --html 2>&1
+
+      - name: command line tests
+        run: bash tests/test_cli.sh 2>&1
+
+      - name: round-trip test
+        run: bash tests/roundtrip.sh 2>&1
+
+      - name: upload coverage report
+        uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: target/llvm-cov/html
+
+      - run: echo "🍏 This job's status is ${{ job.status }}."

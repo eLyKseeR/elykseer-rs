@@ -1,0 +1,68 @@
+[package]
+name = "elykseer-lib"
+version = "0.10.3"
+edition = "2024"
+rust-version = "1.99"
+description = "eLyKseeR encrypted backup: Rust implementation of the Coq/Rocq specification (elykseer-ml)"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/eLyKseeR/elykseer-rs"
+readme = "README.md"
+keywords = ["backup", "encryption", "aes-gcm"]
+categories = ["cryptography", "command-line-utilities"]
+publish = false
+
+[dependencies]
+aes-gcm = "0.10"
+getrandom = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha3 = "0.10"
+zeroize = "1"
+
+[[bin]]
+name = "lxr_backup"
+path = "src/bin/lxr_backup.rs"
+
+[[bin]]
+name = "lxr_restore"
+path = "src/bin/lxr_restore.rs"
+
+[[test]]
+name = "elykseer-rs"
+path = "tests/nchunks_tests.rs"
+
+[[test]]
+name = "tracer_tests"
+path = "tests/tracer_tests.rs"
+
+[[test]]
+name = "conversion_tests"
+path = "tests/conversion_tests.rs"
+
+[[test]]
+name = "assembly_tests"
+path = "tests/assembly_tests.rs"
+
+[[test]]
+name = "cstdio_tests"
+path = "tests/cstdio_tests.rs"
+
+[[test]]
+name = "environment_tests"
+path = "tests/environment_tests.rs"
+
+[[test]]
+name = "utilities_tests"
+path = "tests/utilities_tests.rs"
+
+[[test]]
+name = "assemblycache_tests"
+path = "tests/assemblycache_tests.rs"
+
+[[test]]
+name = "processor_tests"
+path = "tests/processor_tests.rs"
+
+[[test]]
+name = "metadata_tests"
+path = "tests/metadata_tests.rs"

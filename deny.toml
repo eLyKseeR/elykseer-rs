@@ -1,0 +1,43 @@
+# cargo-deny configuration (https://embarkstudios.github.io/cargo-deny/)
+# Run: cargo deny check
+# CI: .github/workflows/audit.yml and .forgejo/workflows/audit.yaml
+# (on dependency changes and weekly)
+
+[graph]
+all-features = true
+
+# RustSec advisories: fail on vulnerabilities, unmaintained and yanked crates.
+# An exception needs an entry in `ignore` with the advisory id and a reason.
+[advisories]
+version = 2
+# The public RustSec database. The Forgejo CI cannot reach github.com and
+# redirects this URL to a mirror with a git `insteadOf` rule
+# (.forgejo/workflows/audit.yaml).
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+unmaintained = "all"
+ignore = []
+
+# The crate is GPL-3.0-or-later; dependencies must be GPL-3.0 compatible.
+[licenses]
+version = 2
+allow = [
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "GPL-3.0-or-later",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+# Duplicate versions are reported, not fatal; wildcard versions are not allowed.
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+# Only crates.io; no git dependencies or other registries.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

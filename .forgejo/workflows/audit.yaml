@@ -1,0 +1,69 @@
+# Dependency audit with cargo-deny (deny.toml): RustSec advisories, licenses,
+# banned/duplicate crates, allowed sources.
+# Runs when dependencies change and weekly, so new advisories against
+# unchanged dependencies are noticed too.
+name: audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.lock
+      - Cargo.toml
+      - deny.toml
+      - .forgejo/workflows/audit.yaml
+  pull_request:
+    paths:
+      - Cargo.lock
+      - Cargo.toml
+      - deny.toml
+      - .forgejo/workflows/audit.yaml
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  cargo-deny:
+    runs-on: nixos-amd64
+    container:
+      image: ${{ vars.CI_IMAGE }}
+      credentials:
+        username: ${{ secrets.REGISTRY_USER }}
+        password: ${{ secrets.REGISTRY_TOKEN }}
+
+    steps:
+      - name: Check out repository code
+        uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          submodules: false
+
+      # cargo-deny is part of the CI image (ci-env.nix); build it only if the
+      # image predates that
+      - name: ensure cargo-deny
+        run: |
+          if ! command -v cargo-deny >/dev/null 2>&1; then
+            echo "cargo-deny not in image, installing"
+            cargo install --locked cargo-deny
+            export PATH="$HOME/.cargo/bin:$PATH"
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+          cargo deny --version
+
+      # deny.toml names the public advisory database on github.com, which the
+      # job containers cannot reach: git is told to fetch it from the mirror
+      # instead. The automatic job token only grants access to this
+      # repository, hence the credentials for the mirror.
+      # Secrets: ADVISORY_DB_USER, ADVISORY_DB_TOKEN (scope read:repository).
+      - name: credentials for the advisory-db mirror
+        env:
+          ADVISORY_DB_USER: ${{ secrets.ADVISORY_DB_USER }}
+          ADVISORY_DB_TOKEN: ${{ secrets.ADVISORY_DB_TOKEN }}
+        run: |
+          auth=$(printf '%s:%s' "$ADVISORY_DB_USER" "$ADVISORY_DB_TOKEN" | base64 -w0)
+          git config --global http.https://code.sbclab.net/eLyKseeR/advisory-db.extraheader "Authorization: Basic ${auth}"
+          git config --global url.https://code.sbclab.net/eLyKseeR/advisory-db.insteadOf https://github.com/rustsec/advisory-db
+
+      - name: cargo deny check
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+        run: cargo deny check 2>&1
