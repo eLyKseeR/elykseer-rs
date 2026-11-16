@@ -52,8 +52,8 @@ jobs:
       - name: Prepare binaries
         run: |
           mkdir -p "dist/${{ matrix.arch }}"
-          cp "target/$TARGET/release/lxr_backup "dist/${{ matrix.arch }}/lxr_backup"
-          cp "target/$TARGET/release/lxr_restore"dist/${{ matrix.arch }}/lxr_restore"
+          cp -v "target/$TARGET/release/lxr_backup" "dist/${{ matrix.arch }}/lxr_backup"
+          cp -v "target/$TARGET/release/lxr_restore" "dist/${{ matrix.arch }}/lxr_restore"
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
