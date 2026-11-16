@@ -16,7 +16,7 @@ permissions:
 
 env:
   # keep in sync with rust-version in Cargo.toml and .forgejo/images/ci/pins.nix
-  RUST_VERSION: "1.99.0"
+  RUST_VERSION: "1.99.1"
 
 jobs:
   test:

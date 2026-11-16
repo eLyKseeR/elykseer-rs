@@ -7,7 +7,7 @@
 #   from within the image itself.
 #
 # Build/push with ci/build-image.sh or the image.yaml workflow.
-ARG BASE_IMAGE=code.sbclab.net/elykseer/nixos:1.0.0
+ARG BASE_IMAGE=code.sbclab.net/elykseer/nixos:1.0.2
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="elykseer-rs CI" \
