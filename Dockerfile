@@ -10,4 +10,4 @@ COPY dist/${TARGETARCH}/${APP2} /usr/local/bin/${APP2}
 
 RUN chmod +x /usr/local/bin/${APP1} /usr/local/bin/${APP2}
 
-ENTRYPOINT ["/usr/local/bin/${APP1}"]
+ENTRYPOINT ["/usr/local/bin/lxr_backup"]
