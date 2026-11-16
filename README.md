@@ -15,6 +15,35 @@ The version number is the version of the specification it follows. The project i
 
 ## Quickstart
 
+### Run programs from pre-built images
+
+The image [ghcr.io/elykseer/elykseer-rs](https://github.com/eLyKseeR/elykseer-rs/pkgs/container/elykseer-rs) contains `lxr_backup` (the entrypoint) and `lxr_restore`. It sees only the directories you mount; here one working directory is mounted at `/work`. The container runs as your user, so that the files it writes belong to you. The working directory must be one that Docker can share (on macOS below your home directory, not `$TMPDIR`).
+
+preparations:
+```sh
+WORKDIR=$(mktemp -d "${HOME}/lxr_demo_XXXXXX")
+mkdir -p "${WORKDIR}/meta" "${WORKDIR}/chunks" "${WORKDIR}/data" "${WORKDIR}/output"
+head -c 8388608 /dev/urandom > "${WORKDIR}/data/file001.dat"
+head -c 3145728 /dev/urandom > "${WORKDIR}/data/file002.dat"
+MYID=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+```
+
+backup of the files in the directory `data`:
+```sh
+docker run --rm --user "$(id -u):$(id -g)" -v "${WORKDIR}:/work" ghcr.io/elykseer/elykseer-rs:latest -v -i "${MYID}" -x /work/chunks -d /work/meta -D /work/data
+```
+
+restore of one file into the directory `output`; the file is named as it was backed up:
+```sh
+docker run --rm --user "$(id -u):$(id -g)" -v "${WORKDIR}:/work" --entrypoint /usr/local/bin/lxr_restore ghcr.io/elykseer/elykseer-rs:latest -v -i "${MYID}" -x /work/chunks -d /work/meta -o /work/output /work/data/file001.dat
+```
+
+compare with the original (the restored file is below `output` under its full name):
+```sh
+cmp "${WORKDIR}/data/file001.dat" "${WORKDIR}/output/work/data/file001.dat" && echo EQUAL
+```
+
+### Building the programs from source
 ```sh
 cargo build --release
 PATH=$PWD/target/release:$PATH
@@ -178,11 +207,13 @@ Types: Coq `N` is `u64`, `nat` is `usize`, `string` is `String`; `positive` is `
 cargo test
 tests/test_cli.sh
 tests/roundtrip.sh
+tests/test_golden.sh
 ```
 
 - `cargo test`: unit tests of all modules
 - `tests/test_cli.sh`: exit codes, corrupted and missing chunks, containment below the output directory, incremental backup, `--verify`
 - `tests/roundtrip.sh`: backup and restore of files of different sizes of random data, with different numbers of chunks per assembly
+- `tests/test_golden.sh`: interoperability with elykseer-ml, run from its Docker image (`LXR_ML_TAG`, default `v0.10.3-1`; needs Docker): ml backup → `lxr_restore` and `--verify` here, and `lxr_backup` here → ml restore and `--verify`, checked by SHA-256
 
 Coverage: `cargo llvm-cov --html` writes the report to `target/llvm-cov/html/index.html`.
 
