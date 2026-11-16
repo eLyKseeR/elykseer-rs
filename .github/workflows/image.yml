@@ -47,8 +47,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build binaries
-        run: cargo build --release --locked --target "$TARGET" \
-               --bin lxr_backup --bin lxr_restore
+        run: cargo build --release --locked --target "$TARGET" --bin lxr_backup --bin lxr_restore
 
       - name: Prepare binaries
         run: |
