@@ -27,12 +27,22 @@ jobs:
           echo "🔎 The name of your branch is ${{ forgejo.ref }} and your repository is ${{ forgejo.repository }}.";
 
       - name: Check out repository code
-        uses: https://data.forgejo.org/actions/checkout@v4
-        with:
-          submodules: false
+        env:
+          SERVER_URL: ${{ forgejo.server_url }}
+          REPOSITORY: ${{ forgejo.repository }}
+          SHA: ${{ forgejo.sha }}
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          git init -q .
+          git remote add origin "$SERVER_URL/$REPOSITORY.git"
+          git -c "http.extraHeader=Authorization: token $TOKEN" fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
+
+      - name: fetch cache action
+        run: git clone -q --depth 1 --branch v5 https://code.sbclab.net/actions/forgejo_cache .forgejo-cache-action
 
       - name: cache dependencies
-        uses: actions/cache@v4
+        uses: ./.forgejo-cache-action
         with:
           key: cargo-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
           path: |
@@ -70,8 +80,11 @@ jobs:
       - name: round-trip test
         run: bash tests/roundtrip.sh 2>&1
 
+      - name: fetch upload action
+        run: git clone -q --depth 1 --branch v4 https://code.sbclab.net/actions/forgejo_upload-artifact .forgejo-upload-action
+
       - name: upload coverage report
-        uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        uses: ./.forgejo-upload-action
         with:
           name: coverage-html
           path: target/llvm-cov/html

@@ -33,9 +33,16 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: https://data.forgejo.org/actions/checkout@v4
-        with:
-          submodules: false
+        env:
+          SERVER_URL: ${{ forgejo.server_url }}
+          REPOSITORY: ${{ forgejo.repository }}
+          SHA: ${{ forgejo.sha }}
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          git init -q .
+          git remote add origin "$SERVER_URL/$REPOSITORY.git"
+          git -c "http.extraHeader=Authorization: token $TOKEN" fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
 
       # cargo-deny is part of the CI image (ci-env.nix); build it only if the
       # image predates that

@@ -70,6 +70,7 @@ touch stamp
 head -c 50000 /dev/urandom > c.bin
 expect 1 "backup with one missing file fails" backup c.bin missing.bin
 mkdir -p o0 && expect 0 "the readable file was still backed up" restore -o o0 c.bin
+touch stamp2
 expect 1 "backup of a directory as a file fails" backup o0
 
 echo "lxr_restore"
@@ -95,12 +96,18 @@ mkdir -p o2a
 expect 0 "restore by the absolute name" restore -o o2a "${WORK}/abs.bin"
 check "an absolute name is restored below the output directory" cmp -s abs.bin "o2a${WORK}/abs.bin"
 
-# c.bin lives alone in the last assembly (written after "stamp")
-FIRST_C=$(find chunks -name '*.lxr' -newer stamp | sort | head -n1)
+# c.bin lives alone in the assembly written between "stamp" and "stamp2"
+# (every backup run writes its own assembly)
+FIRST_C=$(find chunks -name '*.lxr' -newer stamp ! -newer stamp2 | sort | head -n1)
+check "that assembly has 16 chunks" test "$(find chunks -name '*.lxr' -newer stamp ! -newer stamp2 | wc -l | tr -d ' ')" -eq 16
 check "c.bin has its own assembly" test -n "${FIRST_C}"
 cp "${FIRST_C}" saved.lxr
 chmod u+w "${FIRST_C}"
-printf '\x55' | dd of="${FIRST_C}" bs=1 seek=1000 conv=notrunc 2>/dev/null
+
+# flip the byte: chunk data is random, a fixed value would equal it once in 256 runs
+BYTE=$(dd if="${FIRST_C}" bs=1 skip=1000 count=1 2>/dev/null | od -An -tu1 | tr -d ' ')
+printf "$(printf '\\x%02x' $((BYTE ^ 255)))" | dd of="${FIRST_C}" bs=1 seek=1000 conv=notrunc 2>/dev/null
+check "the chunk is changed" bash -c '! cmp -s "$0" "$1"' "${FIRST_C}" saved.lxr
 mkdir -p o3
 expect 1 "restore from a corrupted chunk fails" restore -o o3 c.bin
 expect 1 "verify detects the corrupted chunk" restore --verify c.bin

@@ -27,9 +27,16 @@ jobs:
         password: ${{ secrets.REGISTRY_TOKEN }}
     steps:
       - name: Check out repository code
-        uses: https://data.forgejo.org/actions/checkout@v4
-        with:
-          submodules: false
+        env:
+          SERVER_URL: ${{ forgejo.server_url }}
+          REPOSITORY: ${{ forgejo.repository }}
+          SHA: ${{ forgejo.sha }}
+          TOKEN: ${{ forgejo.token }}
+        run: |
+          git init -q .
+          git remote add origin "$SERVER_URL/$REPOSITORY.git"
+          git -c "http.extraHeader=Authorization: token $TOKEN" fetch -q --depth 1 origin "$SHA"
+          git checkout -q FETCH_HEAD
 
       - name: Log in to the registry
         env:
@@ -59,18 +66,9 @@ jobs:
           echo "docker version, full error:"; docker version || true
           echo "docker daemon never became reachable"; exit 1
 
-      # TEMPORARY: remove once the image builds
-      - name: network diagnostics
-        run: |
-          for u in https://github.com https://codeload.github.com https://cache.nixos.org https://static.rust-lang.org; do
-            echo "== dind bridge: $u"; docker run --rm curlimages/curl -sS -o /dev/null -m 20 -w '%{http_code} %{remote_ip}\n' "$u" || true
-            echo "== dind host:   $u"; docker run --rm --network host curlimages/curl -sS -o /dev/null -m 20 -w '%{http_code} %{remote_ip}\n' "$u" || true
-          done
-          docker run --rm busybox cat /etc/resolv.conf
-          docker run --rm busybox nslookup github.com || true
-
-      # network=host: containers on the dind bridge cannot reach github.com
-      # (rust-overlay tarball), the dind host network (= runner pod) can.
+      # network=host: containers on the dind bridge time out on github.com,
+      # codeload.github.com and cache.nixos.org (DNS works, connections do not);
+      # the dind host network (= runner pod) reaches them.
       # The dind daemon outlives the job, so a BuildKit container of an earlier
       # run (possibly without network=host) would be reused: remove it first.
       - name: Set up Docker Buildx
@@ -81,7 +79,11 @@ jobs:
           echo "BuildKit container network: $(docker inspect -f '{{.HostConfig.NetworkMode}}' buildx_buildkit_multiarch-builder0)"
           docker exec buildx_buildkit_multiarch-builder0 wget -q -O /dev/null -T 20 https://github.com && echo "BuildKit reaches github.com"
 
+      # pushed as :latest and as :<short commit sha>; pin the sha tag in CI_IMAGE to go back
       - name: Build and push
         env:
           CI_IMAGE: ${{ vars.CI_IMAGE }}
-        run: docker buildx build --platform linux/amd64,linux/arm64 -t "$CI_IMAGE" -f .forgejo/images/ci/Dockerfile .forgejo/images/ci --push
+          SHA: ${{ forgejo.sha }}
+        run: |
+          REPO="${CI_IMAGE%:*}"
+          docker buildx build --platform linux/amd64,linux/arm64 -t "$REPO:latest" -t "$REPO:${SHA::7}" -f .forgejo/images/ci/Dockerfile .forgejo/images/ci --push
